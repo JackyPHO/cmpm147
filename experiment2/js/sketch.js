@@ -14,6 +14,10 @@ const VALUE2 = 2;
 let myInstance;
 let canvasContainer;
 var centerHorz, centerVert;
+let seed = 0;
+let leaves = [];
+let lastSpawnTime = 0;
+let spawnInterval = 2000; // in milliseconds (2 seconds)
 
 class MyClass {
     constructor(param1, param2) {
@@ -26,54 +30,120 @@ class MyClass {
     }
 }
 
-function resizeScreen() {
-  centerHorz = canvasContainer.width() / 2; // Adjusted for drawing logic
-  centerVert = canvasContainer.height() / 2; // Adjusted for drawing logic
-  console.log("Resizing...");
-  resizeCanvas(canvasContainer.width(), canvasContainer.height());
-  // redrawCanvas(); // Redraw everything based on new size
-}
-
 // setup() function is called once when the program starts
 function setup() {
   // place our canvas, making it fit our container
   canvasContainer = $("#canvas-container");
   let canvas = createCanvas(canvasContainer.width(), canvasContainer.height());
   canvas.parent("canvas-container");
-  // resize canvas is the page is resized
-
-  // create an instance of the class
-  myInstance = new MyClass("VALUE1", "VALUE2");
-
-  $(window).resize(function() {
-    resizeScreen();
-  });
-  resizeScreen();
+  const button = document.getElementById("reimagine");
+  if (button) {
+    button.addEventListener("click", reimagineFunction);
+  }
+  reimagineFunction();
 }
-
-// draw() function is called repeatedly, it's the main animation loop
-function draw() {
-  background(220);    
-  // call a method on the instance
-  myInstance.myMethod();
-
-  // Set up rotation for the rectangle
-  push(); // Save the current drawing context
-  translate(centerHorz, centerVert); // Move the origin to the rectangle's center
-  rotate(frameCount / 100.0); // Rotate by frameCount to animate the rotation
-  fill(234, 31, 81);
-  noStroke();
-  rect(-125, -125, 250, 250); // Draw the rectangle centered on the new origin
-  pop(); // Restore the original drawing context
-
-  // The text is not affected by the translate and rotate
+function reimagineFunction() {
+  background(230);
+  seed++;
+  leaves = [];
+  for (let i = 0; i < 200; i++) {
+    leaves.push(new Leaf());
+  }
   fill(255);
-  textStyle(BOLD);
-  textSize(140);
-  text("p5*", centerHorz - 105, centerVert + 40);
+  noStroke();
+  for (let i = 0; i < 50000; i++) {
+    circle(random(width), random(height), 5);
+  }
 }
 
-// mousePressed() function is called once after every time a mouse button is pressed
-function mousePressed() {
-    // code to run when mouse is pressed
+function draw() {
+  randomSeed(seed);
+
+  // Add a new leaf every 2 seconds
+  if (millis() - lastSpawnTime > spawnInterval) {
+    leaves.push(new Leaf());
+    lastSpawnTime = millis();
+  }
+
+  // Update and display leaves
+  for (let i = leaves.length - 1; i >= 0; i--) {
+    leaves[i].update();
+    leaves[i].display();
+  }
+}
+
+class Leaf {
+  constructor() {
+    this.x = random(width);
+    this.y = random(height);
+    this.size = random(0.5, 1.2);
+    this.rotation = random(TWO_PI);
+    this.age = 0;
+    this.lifetime = random(5000, 10000);
+  }
+
+  update() {
+    this.age++;
+  }
+
+  display() {
+    push();
+    translate(this.x, this.y);
+    rotate(this.rotation);
+    scale(this.size);
+    translate(-50, -50);
+
+    let t = constrain(this.age / this.lifetime, 0, 1);
+    let r = lerp(241, 41, t);
+    let g = lerp(171, 41, t);
+    let b = lerp(21, 41, t);
+
+    fill(r, g, b);
+    noStroke();
+
+    arc(83, 80, 150, 150, radians(170), radians(270), CHORD);
+    arc(10, 19, 150, 150, radians(-10), radians(90), CHORD);
+
+    // Initialize spots array only once
+    if (!this.display.spots) {
+      // Create offscreen buffer for shape mask
+      let pg = createGraphics(160, 160);
+      pg.noStroke();
+      pg.fill(255);
+      pg.clear();
+      pg.arc(83, 80, 100, 100, radians(170), radians(270), CHORD);
+      pg.arc(10, 19, 100, 100, radians(-10), radians(90), CHORD);
+
+      this.display.spots = [];
+      let spotsCount = random(10,30);
+      let attemptsLimit = 200;
+
+      for (let i = 0; i < spotsCount; i++) {
+        let px, py;
+        let attempts = 0;
+        do {
+          px = random(0, 200);
+          py = random(0, 200);
+          attempts++;
+          if (attempts > attemptsLimit) break;
+          let c = pg.get(floor(px), floor(py));
+          var inside = (c[3] > 0);
+        } while (!inside);
+
+        if (attempts <= attemptsLimit) {
+          this.display.spots.push({ x: px, y: py, size: random(5, 20) });
+        }
+      }
+    }
+
+    // Draw the spots
+    fill(41);
+    noStroke();
+    for (let spot of this.display.spots) {
+      circle(spot.x, spot.y, spot.size);
+    }
+
+    pop();
+  }
+
 }
